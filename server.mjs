@@ -30,16 +30,11 @@ app.use(express.json({ limit: "10mb" }));
 // Simple CORS so extension can call this
 app.use(cors());
 
-const HF_TOKEN = process.env.HF_TOKEN;
-console.log("HF_TOKEN exists?", !!HF_TOKEN);
-
-
 // Lazy-init Gradio client so we reuse the same connection
 let clientPromise = null;
 function getGradioClient() {
   if (!clientPromise) {
     clientPromise = Client.connect("yisol/IDM-VTON", {
-      hf_token: HF_TOKEN,
     });
   }
   return clientPromise;
