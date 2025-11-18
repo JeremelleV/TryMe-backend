@@ -31,6 +31,8 @@ app.use(express.json({ limit: "10mb" }));
 app.use(cors());
 
 const HF_TOKEN = process.env.HF_TOKEN;
+console.log("HF_TOKEN exists?", !!HF_TOKEN);
+
 
 // Lazy-init Gradio client so we reuse the same connection
 let clientPromise = null;
