@@ -8,7 +8,6 @@ This server accepts garment + selfie images from the extension, forwards them to
 ![Express](https://img.shields.io/badge/Framework-Express.js-000000?logo=express&logoColor=white)
 ![HuggingFace](https://img.shields.io/badge/API-HuggingFace_Space-FFD21E?logo=huggingface&logoColor=black)
 ![Render](https://img.shields.io/badge/Hosted_on-Render-46E3B7?logo=render&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue)
 
 ---
 
