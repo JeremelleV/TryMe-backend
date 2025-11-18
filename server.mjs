@@ -170,7 +170,7 @@ app.post("/reverse-search", async (req, res) => {
     )}/public/reverse/${filename}`;
 
     const encodedImageUrl = encodeURIComponent(imageUrl);
-    const googleUrl = `https://www.google.com/searchbyimage?image_url=${encodedImageUrl}&client=app`;
+    const googleUrl = `https://lens.google.com/uploadbyurl?url=${encodedImageUrl}&hl=en`;
 
     return res.json({
       ok: true,
