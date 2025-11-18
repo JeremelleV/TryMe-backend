@@ -11,7 +11,7 @@ const app = express();
 
 // Allow JSON bodies up to ~10MB (for data URLs)
 app.use(express.json({ limit: "10mb" }));
-// Simple CORS so your extension can call this
+// Simple CORS so extension can call this
 app.use(cors());
 
 // Lazy-init Gradio client so we reuse the same connection
@@ -19,7 +19,7 @@ let clientPromise = null;
 function getGradioClient() {
   if (!clientPromise) {
     clientPromise = Client.connect("yisol/IDM-VTON", {
-      // If you ever duplicate the Space and need auth:
+      // If you duplicate the Space and need auth:
       // hf_token: process.env.HF_TOKEN,
     });
   }
@@ -43,7 +43,7 @@ app.post("/tryon", async (req, res) => {
     if (!selfieDataUrl || !garmentDataUrl) {
       return res
         .status(400)
-        .json({ error: "Missing selfieDataUrl or garmentDataUrl" });
+        .json({ ok: false, error: "Missing selfieDataUrl or garmentDataUrl" });
     }
 
     const client = await getGradioClient();
@@ -51,10 +51,10 @@ app.post("/tryon", async (req, res) => {
     const humanBuffer = dataUrlToBuffer(selfieDataUrl);
     const garmentBuffer = dataUrlToBuffer(garmentDataUrl);
 
-    // Call the IDM-VTON Space via gradio JS client
+    console.log("Calling IDM-VTON /tryon...");
     const result = await client.predict("/tryon", [
-      { background: humanBuffer, layers: [], composite: null }, // human editor input
-      garmentBuffer,                                            // garment image
+      { background: humanBuffer, layers: [], composite: null }, // human
+      garmentBuffer,                                            // garment
       "Virtual try-on from TryMe",                             // text prompt
       true,                                                    // auto mask
       false,                                                   // auto crop
@@ -62,19 +62,61 @@ app.post("/tryon", async (req, res) => {
       42                                                       // seed
     ]);
 
-    const [outputImage, maskedImage] = result.data || [];
+    console.log("Raw result from IDM-VTON:", JSON.stringify(result));
 
-    if (!outputImage) {
+    let [outputImage, maskedImage] = result.data || [];
+
+    // ---------- NORMALIZE OUTPUT SO THE BROWSER CAN LOAD IT ----------
+
+    function normalizeImage(img) {
+      if (!img) return null;
+
+      // If Gradio returns an object, try common fields
+      if (typeof img === "object") {
+        const candidate = img.url || img.path || img.image || null;
+        if (!candidate) return null;
+        img = candidate;
+      }
+
+      if (typeof img !== "string") return null;
+
+      // Already a data URL? Use as-is.
+      if (img.startsWith("data:image")) {
+        return img;
+      }
+
+      // Already a full URL? Use as-is.
+      if (/^https?:\/\//.test(img)) {
+        return img;
+      }
+
+      // Paths like "file=/tmp/gradio/..." or "/file=/tmp/..."
+      if (img.startsWith("file=") || img.startsWith("/file=")) {
+        const trimmed = img.replace(/^\/+/, ""); // remove leading '/'
+        const base = "https://yisol-idm-vton.hf.space/";
+        return base + trimmed;
+      }
+
+      // Fallback: treat as a relative path on the Space
+      return "https://yisol-idm-vton.hf.space/" + img.replace(/^\/+/, "");
+    }
+
+    const normalizedOutput = normalizeImage(outputImage);
+    const normalizedMasked = normalizeImage(maskedImage);
+
+    if (!normalizedOutput) {
+      console.error("Could not normalize IDM-VTON output:", outputImage);
       return res.status(500).json({
-        error: "IDM-VTON returned no image",
+        ok: false,
+        error: "IDM-VTON returned an unsupported image format",
         raw: result
       });
     }
 
     return res.json({
       ok: true,
-      result: outputImage,
-      masked: maskedImage ?? null
+      result: normalizedOutput,
+      masked: normalizedMasked
     });
   } catch (err) {
     console.error("TryOn error:", err);
@@ -85,6 +127,7 @@ app.post("/tryon", async (req, res) => {
     });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
